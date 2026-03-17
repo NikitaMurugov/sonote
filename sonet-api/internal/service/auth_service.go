@@ -104,6 +104,16 @@ func (s *AuthService) Register(ctx context.Context, email, username, password, d
 		return nil, fmt.Errorf("failed to create personal workspace: %w", err)
 	}
 
+	// Add owner as admin member (needed for encrypted_dek storage)
+	member := &model.WorkspaceMember{
+		WorkspaceID: ws.ID,
+		UserID:      user.ID,
+		Role:        "admin",
+	}
+	if err := s.wsRepo.AddMember(ctx, member); err != nil {
+		return nil, fmt.Errorf("failed to add owner as member: %w", err)
+	}
+
 	tokens, err := s.generateTokens(ctx, user)
 	if err != nil {
 		return nil, err

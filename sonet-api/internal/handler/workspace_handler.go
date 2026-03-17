@@ -67,6 +67,14 @@ func (h *WorkspaceHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Add owner as admin member
+	member := &model.WorkspaceMember{
+		WorkspaceID: ws.ID,
+		UserID:      userID,
+		Role:        "admin",
+	}
+	_ = h.wsRepo.AddMember(r.Context(), member)
+
 	response.JSON(w, http.StatusCreated, ws)
 }
 
@@ -157,8 +165,9 @@ func (h *WorkspaceHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
 }
 
 type inviteMemberRequest struct {
-	Email string `json:"email"`
-	Role  string `json:"role"`
+	Email        string  `json:"email"`
+	Role         string  `json:"role"`
+	EncryptedDEK *string `json:"encrypted_dek"`
 }
 
 func (h *WorkspaceHandler) InviteMember(w http.ResponseWriter, r *http.Request) {
@@ -183,10 +192,11 @@ func (h *WorkspaceHandler) InviteMember(w http.ResponseWriter, r *http.Request) 
 	}
 
 	member := &model.WorkspaceMember{
-		WorkspaceID: wsID,
-		UserID:      invitee.ID,
-		Role:        req.Role,
-		InvitedBy:   &userID,
+		WorkspaceID:  wsID,
+		UserID:       invitee.ID,
+		Role:         req.Role,
+		InvitedBy:    &userID,
+		EncryptedDEK: req.EncryptedDEK,
 	}
 
 	if err := h.wsRepo.AddMember(r.Context(), member); err != nil {
@@ -220,6 +230,42 @@ func (h *WorkspaceHandler) UpdateMemberRole(w http.ResponseWriter, r *http.Reque
 	}
 
 	response.JSON(w, http.StatusOK, map[string]string{"message": "role updated"})
+}
+
+func (h *WorkspaceHandler) UpdateMemberDEK(w http.ResponseWriter, r *http.Request) {
+	wsID, _ := strconv.ParseUint(chi.URLParam(r, "wsId"), 10, 64)
+	userID := middleware.GetUserID(r.Context())
+
+	var req struct {
+		EncryptedDEK string `json:"encrypted_dek"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if err := h.wsRepo.UpdateMemberDEK(r.Context(), wsID, userID, req.EncryptedDEK); err != nil {
+		response.Error(w, http.StatusInternalServerError, "failed to update dek")
+		return
+	}
+
+	// Also mark workspace as encrypted
+	_ = h.wsRepo.SetEncrypted(r.Context(), wsID, true)
+
+	response.JSON(w, http.StatusOK, map[string]string{"message": "dek updated"})
+}
+
+func (h *WorkspaceHandler) GetMyMember(w http.ResponseWriter, r *http.Request) {
+	wsID, _ := strconv.ParseUint(chi.URLParam(r, "wsId"), 10, 64)
+	userID := middleware.GetUserID(r.Context())
+
+	member, err := h.wsRepo.GetMember(r.Context(), wsID, userID)
+	if err != nil || member == nil {
+		response.Error(w, http.StatusNotFound, "not a member")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, member)
 }
 
 func (h *WorkspaceHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {

@@ -58,6 +58,39 @@
         </router-link>
       </p>
     </div>
+
+    <!-- Recovery Key Modal -->
+    <Teleport to="body">
+      <div
+        v-if="recoveryKey"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      >
+        <div class="bg-bg-base border border-border rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl anim-fade-up">
+          <h2 class="text-lg font-semibold text-text-primary mb-1" style="font-family: var(--font-heading)">
+            Ключ восстановления
+          </h2>
+          <p class="text-xs text-text-tertiary mb-4">
+            Ваш аккаунт защищён сквозным шифрованием. Сохраните этот ключ в безопасном месте —
+            он понадобится, если вы забудете пароль. Ключ показывается только один раз!
+          </p>
+          <div class="p-3 bg-warning/10 border border-warning/30 rounded-xl mb-4">
+            <code class="text-sm text-text-primary break-all select-all">{{ recoveryKey }}</code>
+          </div>
+          <button
+            @click="copyRecoveryKey"
+            class="w-full py-2 rounded-xl border border-border text-sm text-text-secondary hover:bg-bg-hover transition mb-2"
+          >
+            {{ copied ? 'Скопировано!' : 'Скопировать' }}
+          </button>
+          <button
+            @click="finishRegistration"
+            class="w-full py-2.5 rounded-xl bg-primary text-text-inverse text-sm font-semibold hover:bg-primary-hover transition"
+          >
+            Я сохранил ключ
+          </button>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -72,6 +105,8 @@ const displayName = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
+const recoveryKey = ref('')
+const copied = ref(false)
 const router = useRouter()
 const authStore = useAuthStore()
 
@@ -79,12 +114,27 @@ async function handleRegister() {
   error.value = ''
   loading.value = true
   try {
-    await authStore.register(email.value, username.value, password.value, displayName.value || username.value)
-    router.push('/')
+    const key = await authStore.register(email.value, username.value, password.value, displayName.value || username.value)
+    recoveryKey.value = key || ''
+    // If no recovery key returned (shouldn't happen), go straight to app
+    if (!recoveryKey.value) {
+      router.push('/')
+    }
   } catch (e: any) {
     error.value = e.response?.data?.error || 'Ошибка регистрации'
   } finally {
     loading.value = false
   }
+}
+
+async function copyRecoveryKey() {
+  await navigator.clipboard.writeText(recoveryKey.value)
+  copied.value = true
+  setTimeout(() => { copied.value = false }, 2000)
+}
+
+function finishRegistration() {
+  recoveryKey.value = ''
+  router.push('/')
 }
 </script>

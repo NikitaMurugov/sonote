@@ -38,6 +38,7 @@ func main() {
 	noteRepo := repository.NewNoteRepository(db)
 	linkRepo := repository.NewNoteLinkRepository(db)
 	tagRepo := repository.NewTagRepository(db)
+	sessionRepo := repository.NewSessionRepository(db)
 
 	// Services
 	authService := service.NewAuthService(
@@ -47,14 +48,16 @@ func main() {
 
 	// Handlers
 	handlers := router.Handlers{
-		Auth:      handler.NewAuthHandler(authService),
-		User:      handler.NewUserHandler(userRepo),
-		Workspace: handler.NewWorkspaceHandler(wsRepo, userRepo),
-		Folder:    handler.NewFolderHandler(folderRepo),
-		Note:      handler.NewNoteHandler(noteRepo, linkRepo),
-		Tag:       handler.NewTagHandler(tagRepo),
-		Search:    handler.NewSearchHandler(noteRepo),
-		Graph:     handler.NewGraphHandler(noteRepo, linkRepo),
+		Auth:       handler.NewAuthHandler(authService),
+		User:       handler.NewUserHandler(userRepo),
+		Workspace:  handler.NewWorkspaceHandler(wsRepo, userRepo),
+		Folder:     handler.NewFolderHandler(folderRepo),
+		Note:       handler.NewNoteHandler(noteRepo, linkRepo),
+		Tag:        handler.NewTagHandler(tagRepo),
+		Search:     handler.NewSearchHandler(noteRepo),
+		Graph:      handler.NewGraphHandler(noteRepo, linkRepo),
+		Encryption: handler.NewEncryptionHandler(userRepo),
+		Session:    handler.NewSessionHandler(sessionRepo),
 	}
 
 	// Router

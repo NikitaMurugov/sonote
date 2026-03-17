@@ -18,11 +18,13 @@ func NewNoteRepository(db *sqlx.DB) *NoteRepository {
 }
 
 func (r *NoteRepository) Create(ctx context.Context, n *model.Note) error {
-	query := `INSERT INTO notes (workspace_id, folder_id, title, slug, content_md, content_html, content_json, author_id, word_count)
-	           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO notes (workspace_id, folder_id, title, slug, content_md, content_html, content_json, author_id, word_count,
+	           content_encrypted, content_iv, title_encrypted, title_iv, is_encrypted)
+	           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	result, err := r.db.ExecContext(ctx, query,
 		n.WorkspaceID, n.FolderID, n.Title, n.Slug,
-		n.ContentMD, n.ContentHTML, n.ContentJSON, n.AuthorID, n.WordCount)
+		n.ContentMD, n.ContentHTML, n.ContentJSON, n.AuthorID, n.WordCount,
+		n.ContentEncrypted, n.ContentIV, n.TitleEncrypted, n.TitleIV, n.IsEncrypted)
 	if err != nil {
 		return err
 	}
@@ -69,11 +71,13 @@ func (r *NoteRepository) ListByWorkspace(ctx context.Context, workspaceID uint64
 
 func (r *NoteRepository) Update(ctx context.Context, n *model.Note) error {
 	query := `UPDATE notes SET title = ?, slug = ?, content_md = ?, content_html = ?,
-	          content_json = ?, folder_id = ?, is_pinned = ?, is_archived = ?, word_count = ?
+	          content_json = ?, folder_id = ?, is_pinned = ?, is_archived = ?, word_count = ?,
+	          content_encrypted = ?, content_iv = ?, title_encrypted = ?, title_iv = ?, is_encrypted = ?
 	          WHERE id = ?`
 	_, err := r.db.ExecContext(ctx, query,
 		n.Title, n.Slug, n.ContentMD, n.ContentHTML, n.ContentJSON,
-		n.FolderID, n.IsPinned, n.IsArchived, n.WordCount, n.ID)
+		n.FolderID, n.IsPinned, n.IsArchived, n.WordCount,
+		n.ContentEncrypted, n.ContentIV, n.TitleEncrypted, n.TitleIV, n.IsEncrypted, n.ID)
 	return err
 }
 

@@ -11,6 +11,11 @@ export interface Note {
   is_pinned: boolean
   is_archived: boolean
   word_count: number
+  content_encrypted?: string | null
+  content_iv?: string | null
+  title_encrypted?: string | null
+  title_iv?: string | null
+  is_encrypted: boolean
   created_at: string
   updated_at: string
 }

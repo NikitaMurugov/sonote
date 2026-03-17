@@ -23,6 +23,12 @@ export const useAuthStore = defineStore('auth', () => {
       display_name: displayName,
     })
     setAuth(data.data)
+
+    // Auto-setup encryption using the same password
+    const { useEncryptionStore } = await import('@/stores/encryption')
+    const encStore = useEncryptionStore()
+    const recoveryKey = await encStore.setup(password)
+    return recoveryKey
   }
 
   async function refreshTokens() {
@@ -60,12 +66,28 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('sonote-refresh-token')
   }
 
+  async function loginAndSetup(email: string, password: string) {
+    await login(email, password)
+    // Try to auto-unlock encryption if set up
+    try {
+      const { useEncryptionStore } = await import('@/stores/encryption')
+      const encStore = useEncryptionStore()
+      await encStore.checkSetup()
+      if (encStore.isSetup) {
+        await encStore.unlock(password)
+      }
+    } catch (e) {
+      console.warn('Auto-unlock encryption failed:', e)
+    }
+  }
+
   return {
     user,
     accessToken,
     refreshToken,
     isAuthenticated,
     login,
+    loginAndSetup,
     register,
     refreshTokens,
     fetchUser,

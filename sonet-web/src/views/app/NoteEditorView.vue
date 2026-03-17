@@ -1,7 +1,7 @@
 <template>
   <div v-if="note" class="h-full flex flex-col anim-fade-up">
     <!-- Title area -->
-    <div class="px-8 pt-8 pb-2">
+    <div class="px-10 pt-10 pb-3">
       <input
         v-model="note.title"
         @input="debouncedSaveTitle"
@@ -60,7 +60,7 @@
     </div>
 
     <!-- Editor + Backlinks -->
-    <div class="flex-1 px-8 pb-8 overflow-auto">
+    <div class="flex-1 px-10 pb-10 overflow-auto">
       <NoteEditor
         :content="initialContent"
         @update="handleEditorUpdate"
@@ -208,8 +208,13 @@ function formatDate(dateStr: string) {
 async function loadNote() {
   if (!workspaceStore.currentWorkspace) return
   const noteId = Number(route.params.noteId)
+  // Note store handles decryption transparently
   await noteStore.fetchNote(workspaceStore.currentWorkspace.id, noteId)
   note.value = noteStore.currentNote
+  // Recalculate word count from decrypted content
+  if (note.value?.content_md) {
+    note.value.word_count = note.value.content_md.split(/\s+/).filter(Boolean).length
+  }
   initialContent.value = note.value?.content_json || note.value?.content_html || ''
   await loadNoteTags()
 }

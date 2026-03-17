@@ -1,10 +1,13 @@
 <template>
   <aside class="h-screen w-60 bg-bg-sidebar border-r border-border flex flex-col shrink-0 anim-slide-r">
-    <!-- Logo + Workspace -->
+    <!-- Workspace Picker -->
     <div class="px-4 py-4 border-b border-border-light">
-      <div class="flex items-center gap-2.5">
-        <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary text-sm font-bold" style="font-family: var(--font-heading)">
-          S
+      <button
+        @click="showWsPicker = !showWsPicker"
+        class="w-full flex items-center gap-2.5 group"
+      >
+        <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary text-sm font-bold shrink-0" style="font-family: var(--font-heading)">
+          {{ workspaceStore.currentWorkspace?.name?.charAt(0)?.toUpperCase() || 'S' }}
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-semibold text-text-primary truncate">
@@ -12,6 +15,30 @@
           </p>
           <p class="text-[10px] text-text-tertiary tracking-wide uppercase">workspace</p>
         </div>
+        <svg
+          class="w-3.5 h-3.5 text-text-tertiary transition-transform duration-200 shrink-0"
+          :class="showWsPicker ? 'rotate-180' : ''"
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      <!-- Dropdown -->
+      <div v-if="showWsPicker" class="mt-2 space-y-0.5">
+        <button
+          v-for="ws in workspaceStore.workspaces"
+          :key="ws.id"
+          @click="switchWorkspace(ws)"
+          :class="[
+            'w-full text-left px-3 py-2 rounded-lg text-sm transition-all duration-150 truncate',
+            ws.id === workspaceStore.currentWorkspace?.id
+              ? 'bg-bg-active text-text-primary font-medium'
+              : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
+          ]"
+        >
+          {{ ws.name }}
+        </button>
       </div>
     </div>
 
@@ -121,7 +148,7 @@
     <!-- Bottom -->
     <div class="px-2 pb-3 pt-2 border-t border-border-light space-y-0.5">
       <router-link
-        :to="`/w/${$route.params.wsSlug}/graph`"
+        :to="`/w/${workspaceStore.currentSlug}/graph`"
         class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-all duration-150"
       >
         <svg class="w-3.5 h-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -130,7 +157,16 @@
         Граф
       </router-link>
       <router-link
-        :to="`/w/${$route.params.wsSlug}/settings`"
+        :to="`/w/${workspaceStore.currentSlug}/search`"
+        class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-all duration-150"
+      >
+        <svg class="w-3.5 h-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        Поиск
+      </router-link>
+      <router-link
+        :to="`/w/${workspaceStore.currentSlug}/settings`"
         class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-all duration-150"
       >
         <svg class="w-3.5 h-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -150,6 +186,7 @@ import { useUiStore } from '@/stores/ui'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useFolderStore } from '@/stores/folder'
 import { useNoteStore } from '@/stores/note'
+import type { Workspace } from '@/types/workspace'
 
 const route = useRoute()
 const router = useRouter()
@@ -158,6 +195,7 @@ const workspaceStore = useWorkspaceStore()
 const folderStore = useFolderStore()
 const noteStore = useNoteStore()
 
+const showWsPicker = ref(false)
 const showNewFolder = ref(false)
 const newFolderName = ref('')
 const newFolderInput = ref<HTMLInputElement>()
@@ -170,6 +208,11 @@ watch(showNewFolder, async (v) => {
     newFolderInput.value?.focus()
   }
 })
+
+function switchWorkspace(ws: Workspace) {
+  showWsPicker.value = false
+  router.push(`/w/${ws.slug}`)
+}
 
 async function createFolder() {
   if (!newFolderName.value.trim() || !workspaceStore.currentWorkspace) return
@@ -194,7 +237,7 @@ function selectFolder(folderId: number | null) {
 }
 
 function openNote(noteId: number) {
-  router.push(`/w/${route.params.wsSlug}/note/${noteId}`)
+  router.push(`/w/${workspaceStore.currentSlug}/note/${noteId}`)
 }
 
 async function handleNewNote() {
@@ -204,7 +247,7 @@ async function handleNewNote() {
     'Без названия',
     folderStore.selectedFolderId ?? undefined
   )
-  router.push(`/w/${route.params.wsSlug}/note/${note.id}`)
+  router.push(`/w/${workspaceStore.currentSlug}/note/${note.id}`)
 }
 
 watch(
@@ -212,10 +255,13 @@ watch(
   async (slug) => {
     if (slug) {
       await workspaceStore.setCurrentBySlug(slug as string)
-      if (workspaceStore.currentWorkspace) {
-        await folderStore.fetchFolders(workspaceStore.currentWorkspace.id)
-        await noteStore.fetchNotes(workspaceStore.currentWorkspace.id)
-      }
+    } else if (!workspaceStore.currentWorkspace) {
+      // No slug in URL (e.g. /profile) — restore from localStorage
+      await workspaceStore.setCurrentBySlug('')
+    }
+    if (workspaceStore.currentWorkspace) {
+      await folderStore.fetchFolders(workspaceStore.currentWorkspace.id)
+      await noteStore.fetchNotes(workspaceStore.currentWorkspace.id)
     }
   },
   { immediate: true }

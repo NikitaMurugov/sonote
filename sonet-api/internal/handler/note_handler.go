@@ -47,11 +47,16 @@ func (h *NoteHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 type createNoteRequest struct {
-	Title       string              `json:"title"`
-	FolderID    *uint64             `json:"folder_id"`
-	ContentMD   string              `json:"content_md"`
-	ContentHTML string              `json:"content_html"`
-	ContentJSON model.NullRawMessage `json:"content_json"`
+	Title            string               `json:"title"`
+	FolderID         *uint64              `json:"folder_id"`
+	ContentMD        string               `json:"content_md"`
+	ContentHTML      string               `json:"content_html"`
+	ContentJSON      model.NullRawMessage `json:"content_json"`
+	ContentEncrypted *string              `json:"content_encrypted"`
+	ContentIV        *string              `json:"content_iv"`
+	TitleEncrypted   *string              `json:"title_encrypted"`
+	TitleIV          *string              `json:"title_iv"`
+	IsEncrypted      bool                 `json:"is_encrypted"`
 }
 
 func (h *NoteHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -70,15 +75,20 @@ func (h *NoteHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	note := &model.Note{
-		WorkspaceID: wsID,
-		FolderID:    req.FolderID,
-		Title:       req.Title,
-		Slug:        generateSlug(req.Title),
-		ContentMD:   req.ContentMD,
-		ContentHTML: req.ContentHTML,
-		ContentJSON: req.ContentJSON,
-		AuthorID:    userID,
-		WordCount:   uint32(countWords(req.ContentMD)),
+		WorkspaceID:      wsID,
+		FolderID:         req.FolderID,
+		Title:            req.Title,
+		Slug:             generateSlug(req.Title),
+		ContentMD:        req.ContentMD,
+		ContentHTML:      req.ContentHTML,
+		ContentJSON:      req.ContentJSON,
+		AuthorID:         userID,
+		WordCount:        uint32(countWords(req.ContentMD)),
+		ContentEncrypted: req.ContentEncrypted,
+		ContentIV:        req.ContentIV,
+		TitleEncrypted:   req.TitleEncrypted,
+		TitleIV:          req.TitleIV,
+		IsEncrypted:      req.IsEncrypted,
 	}
 
 	if err := h.noteRepo.Create(r.Context(), note); err != nil {
@@ -102,13 +112,18 @@ func (h *NoteHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateNoteRequest struct {
-	Title       *string               `json:"title"`
-	FolderID    *uint64               `json:"folder_id"`
-	ContentMD   *string               `json:"content_md"`
-	ContentHTML *string               `json:"content_html"`
-	ContentJSON *model.NullRawMessage `json:"content_json"`
-	IsPinned    *bool                 `json:"is_pinned"`
-	IsArchived  *bool                 `json:"is_archived"`
+	Title            *string               `json:"title"`
+	FolderID         *uint64               `json:"folder_id"`
+	ContentMD        *string               `json:"content_md"`
+	ContentHTML      *string               `json:"content_html"`
+	ContentJSON      *model.NullRawMessage `json:"content_json"`
+	IsPinned         *bool                 `json:"is_pinned"`
+	IsArchived       *bool                 `json:"is_archived"`
+	ContentEncrypted *string               `json:"content_encrypted"`
+	ContentIV        *string               `json:"content_iv"`
+	TitleEncrypted   *string               `json:"title_encrypted"`
+	TitleIV          *string               `json:"title_iv"`
+	IsEncrypted      *bool                 `json:"is_encrypted"`
 }
 
 func (h *NoteHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -148,6 +163,21 @@ func (h *NoteHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.IsArchived != nil {
 		note.IsArchived = *req.IsArchived
+	}
+	if req.ContentEncrypted != nil {
+		note.ContentEncrypted = req.ContentEncrypted
+	}
+	if req.ContentIV != nil {
+		note.ContentIV = req.ContentIV
+	}
+	if req.TitleEncrypted != nil {
+		note.TitleEncrypted = req.TitleEncrypted
+	}
+	if req.TitleIV != nil {
+		note.TitleIV = req.TitleIV
+	}
+	if req.IsEncrypted != nil {
+		note.IsEncrypted = *req.IsEncrypted
 	}
 
 	if err := h.noteRepo.Update(r.Context(), note); err != nil {

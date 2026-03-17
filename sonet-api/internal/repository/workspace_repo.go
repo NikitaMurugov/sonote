@@ -71,8 +71,8 @@ func (r *WorkspaceRepository) Delete(ctx context.Context, id uint64) error {
 }
 
 func (r *WorkspaceRepository) AddMember(ctx context.Context, member *model.WorkspaceMember) error {
-	query := `INSERT INTO workspace_members (workspace_id, user_id, role, invited_by) VALUES (?, ?, ?, ?)`
-	result, err := r.db.ExecContext(ctx, query, member.WorkspaceID, member.UserID, member.Role, member.InvitedBy)
+	query := `INSERT INTO workspace_members (workspace_id, user_id, role, invited_by, encrypted_dek) VALUES (?, ?, ?, ?, ?)`
+	result, err := r.db.ExecContext(ctx, query, member.WorkspaceID, member.UserID, member.Role, member.InvitedBy, member.EncryptedDEK)
 	if err != nil {
 		return err
 	}
@@ -113,5 +113,18 @@ func (r *WorkspaceRepository) RemoveMember(ctx context.Context, workspaceID, use
 	_, err := r.db.ExecContext(ctx,
 		"DELETE FROM workspace_members WHERE workspace_id = ? AND user_id = ?",
 		workspaceID, userID)
+	return err
+}
+
+func (r *WorkspaceRepository) UpdateMemberDEK(ctx context.Context, workspaceID, userID uint64, encryptedDEK string) error {
+	_, err := r.db.ExecContext(ctx,
+		"UPDATE workspace_members SET encrypted_dek = ? WHERE workspace_id = ? AND user_id = ?",
+		encryptedDEK, workspaceID, userID)
+	return err
+}
+
+func (r *WorkspaceRepository) SetEncrypted(ctx context.Context, workspaceID uint64, encrypted bool) error {
+	_, err := r.db.ExecContext(ctx,
+		"UPDATE workspaces SET is_encrypted = ? WHERE id = ?", encrypted, workspaceID)
 	return err
 }

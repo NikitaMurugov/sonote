@@ -1,9 +1,9 @@
 <template>
-  <div class="p-8 max-w-2xl mx-auto anim-fade-up">
-    <h1 class="text-2xl font-semibold mb-6" style="font-family: var(--font-heading)">Настройки</h1>
+  <div class="px-10 py-10 max-w-3xl mx-auto anim-fade-up">
+    <h1 class="text-2xl font-semibold mb-8" style="font-family: var(--font-heading)">Настройки</h1>
 
     <!-- Tabs -->
-    <div class="flex gap-1 mb-6 border-b border-border-light">
+    <div class="flex gap-1 mb-8 border-b border-border-light">
       <button
         v-for="tab in tabs"
         :key="tab.id"
@@ -21,7 +21,7 @@
 
     <!-- General -->
     <div v-if="activeTab === 'general' && ws">
-      <div class="space-y-4">
+      <div class="space-y-5">
         <div>
           <label class="block text-xs font-medium text-text-secondary uppercase tracking-wide mb-2">Название</label>
           <input
@@ -49,7 +49,7 @@
     <!-- Members -->
     <div v-if="activeTab === 'members'">
       <!-- Invite -->
-      <div class="flex gap-2 mb-6">
+      <div class="flex gap-3 mb-8">
         <input
           v-model="inviteEmail"
           placeholder="Email пользователя"
@@ -74,11 +74,11 @@
       <p v-if="inviteError" class="text-error text-sm mb-4">{{ inviteError }}</p>
 
       <!-- Member list -->
-      <div class="space-y-2">
+      <div class="space-y-3">
         <div
           v-for="member in members"
           :key="member.id"
-          class="flex items-center gap-3 p-3 rounded-xl bg-bg-surface/60 border border-border-light"
+          class="flex items-center gap-3 p-4 rounded-2xl bg-bg-surface/60 border border-border-light"
         >
           <div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold">
             {{ member.user_id }}
@@ -102,7 +102,7 @@
 
     <!-- Tags -->
     <div v-if="activeTab === 'tags'">
-      <div class="flex gap-2 mb-4">
+      <div class="flex gap-3 mb-6">
         <input
           v-model="newTagName"
           @keydown.enter="createTag"
@@ -121,7 +121,7 @@
           Создать
         </button>
       </div>
-      <div class="flex flex-wrap gap-2">
+      <div class="flex flex-wrap gap-3">
         <div
           v-for="tag in tagStore.tags"
           :key="tag.id"
@@ -154,12 +154,14 @@ import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useTagStore } from '@/stores/tag'
+import { useEncryptionStore } from '@/stores/encryption'
 import api from '@/composables/useApi'
 import type { WorkspaceMember } from '@/types/workspace'
 
 const route = useRoute()
 const workspaceStore = useWorkspaceStore()
 const tagStore = useTagStore()
+const encryptionStore = useEncryptionStore()
 
 const tabs = [
   { id: 'general', label: 'Общее' },
@@ -192,10 +194,34 @@ async function inviteMember() {
   if (!ws.value || !inviteEmail.value.trim()) return
   inviteError.value = ''
   try {
-    await api.post(`/workspaces/${ws.value.id}/members`, {
+    const payload: Record<string, any> = {
       email: inviteEmail.value,
       role: inviteRole.value,
-    })
+    }
+
+    // If workspace is encrypted, wrap DEK for the invited user
+    if (ws.value.is_encrypted) {
+      const unlocked = await encryptionStore.ensureUnlocked()
+      if (!unlocked) {
+        inviteError.value = 'Разблокируйте шифрование в профиле'
+        return
+      }
+      try {
+        const { data: pkData } = await api.get('/encryption/public-key-by-email', {
+          params: { email: inviteEmail.value },
+        })
+        const inviteePublicKey = pkData.data?.public_key
+        if (inviteePublicKey) {
+          const dek = await encryptionStore.getWorkspaceDEK(ws.value.id)
+          payload.encrypted_dek = await encryptionStore.wrapDEKForUser(dek, inviteePublicKey)
+        }
+      } catch (e: any) {
+        console.warn('DEK wrapping failed:', e)
+        // Proceed without DEK — invitee won't be able to decrypt until re-invited
+      }
+    }
+
+    await api.post(`/workspaces/${ws.value.id}/members`, payload)
     inviteEmail.value = ''
     await loadMembers()
   } catch (e: any) {

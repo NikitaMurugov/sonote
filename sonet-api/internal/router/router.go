@@ -9,14 +9,16 @@ import (
 )
 
 type Handlers struct {
-	Auth      *handler.AuthHandler
-	User      *handler.UserHandler
-	Workspace *handler.WorkspaceHandler
-	Folder    *handler.FolderHandler
-	Note      *handler.NoteHandler
-	Tag       *handler.TagHandler
-	Search    *handler.SearchHandler
-	Graph     *handler.GraphHandler
+	Auth       *handler.AuthHandler
+	User       *handler.UserHandler
+	Workspace  *handler.WorkspaceHandler
+	Folder     *handler.FolderHandler
+	Note       *handler.NoteHandler
+	Tag        *handler.TagHandler
+	Search     *handler.SearchHandler
+	Graph      *handler.GraphHandler
+	Encryption *handler.EncryptionHandler
+	Session    *handler.SessionHandler
 }
 
 func New(h Handlers, wsRepo *repository.WorkspaceRepository, jwtSecret, corsOrigins string) *chi.Mux {
@@ -47,6 +49,18 @@ func New(h Handlers, wsRepo *repository.WorkspaceRepository, jwtSecret, corsOrig
 			r.Patch("/users/me", h.User.UpdateMe)
 			r.Put("/users/me/password", h.User.ChangePassword)
 
+			// Encryption
+			r.Post("/encryption/setup", h.Encryption.SetupKeys)
+			r.Get("/encryption/keys", h.Encryption.GetKeys)
+			r.Get("/encryption/public-key/{userId}", h.Encryption.GetPublicKey)
+			r.Get("/encryption/public-key-by-email", h.Encryption.GetPublicKeyByEmail)
+			r.Post("/encryption/recover", h.Encryption.RecoverKeys)
+
+			// Sessions
+			r.Get("/sessions", h.Session.List)
+			r.Delete("/sessions/{sessionId}", h.Session.Revoke)
+			r.Post("/sessions/revoke-all", h.Session.RevokeAll)
+
 			// Workspaces
 			r.Get("/workspaces", h.Workspace.List)
 			r.Post("/workspaces", h.Workspace.Create)
@@ -56,6 +70,8 @@ func New(h Handlers, wsRepo *repository.WorkspaceRepository, jwtSecret, corsOrig
 
 				r.Get("/", h.Workspace.Get)
 				r.Get("/members", h.Workspace.ListMembers)
+				r.Get("/members/me", h.Workspace.GetMyMember)
+				r.Put("/members/me/dek", h.Workspace.UpdateMemberDEK)
 				r.Get("/graph", h.Graph.GetGraph)
 				r.Get("/search", h.Search.Search)
 

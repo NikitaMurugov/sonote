@@ -6,6 +6,7 @@ export interface Workspace {
   owner_id: number
   is_personal: boolean
   icon: string | null
+  is_encrypted: boolean
   created_at: string
   updated_at: string
 }
@@ -16,5 +17,6 @@ export interface WorkspaceMember {
   user_id: number
   role: 'viewer' | 'editor' | 'admin'
   invited_by: number | null
+  encrypted_dek?: string | null
   joined_at: string
 }

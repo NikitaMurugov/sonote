@@ -1,5 +1,5 @@
 <template>
-  <div class="p-8 max-w-4xl mx-auto">
+  <div class="px-10 py-10 max-w-5xl mx-auto">
     <!-- Greeting -->
     <div class="mb-10 anim-fade-up">
       <h1 class="text-3xl font-semibold text-text-primary tracking-tight" style="font-family: var(--font-heading)">
@@ -9,7 +9,7 @@
     </div>
 
     <!-- Quick action -->
-    <div class="mb-10 anim-fade-up d2">
+    <div class="mb-12 anim-fade-up d2">
       <button
         @click="handleNewNote"
         class="group flex items-center gap-2.5 px-5 py-3 bg-primary text-text-inverse rounded-xl text-sm font-semibold hover:bg-primary-hover active:scale-[0.98] transition-all duration-200 shadow-[0_2px_16px_rgba(184,98,27,0.2)]"
@@ -22,18 +22,18 @@
     </div>
 
     <!-- Pinned -->
-    <section v-if="pinnedNotes.length" class="mb-10 anim-fade-up d3">
+    <section v-if="pinnedNotes.length" class="mb-12 anim-fade-up d3">
       <div class="flex items-center gap-3 mb-4">
         <h2 class="text-[10px] font-semibold text-text-tertiary uppercase tracking-[0.15em]">Закреплённые</h2>
         <div class="flex-1 h-px bg-border-light"></div>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div
           v-for="(note, i) in pinnedNotes"
           :key="note.id"
           @click="openNote(note)"
           :style="{ animationDelay: `${i * 60 + 200}ms` }"
-          class="group p-5 bg-bg-surface border border-border rounded-xl cursor-pointer hover:border-primary/30 hover:shadow-[0_4px_20px_rgba(45,32,24,0.08)] transition-all duration-250 anim-fade-up"
+          class="group p-5 bg-bg-surface border border-border rounded-2xl cursor-pointer hover:border-primary/30 hover:shadow-[0_4px_20px_rgba(45,32,24,0.08)] transition-all duration-250 anim-fade-up"
         >
           <div class="flex items-start justify-between mb-2">
             <h3 class="font-semibold text-text-primary text-[15px] truncate flex-1" style="font-family: var(--font-heading); font-size: 18px;">{{ note.title }}</h3>
@@ -52,13 +52,13 @@
         <div class="flex-1 h-px bg-border-light"></div>
       </div>
 
-      <div v-if="recentNotes.length" class="space-y-2">
+      <div v-if="recentNotes.length" class="space-y-3">
         <div
           v-for="(note, i) in recentNotes"
           :key="note.id"
           @click="openNote(note)"
           :style="{ animationDelay: `${i * 40 + 300}ms` }"
-          class="group flex items-start gap-4 p-4 bg-bg-surface/60 border border-transparent rounded-xl cursor-pointer hover:bg-bg-surface hover:border-border hover:shadow-[0_2px_12px_rgba(45,32,24,0.05)] transition-all duration-200 anim-fade-up"
+          class="group flex items-start gap-4 p-4 bg-bg-surface/60 border border-transparent rounded-2xl cursor-pointer hover:bg-bg-surface hover:border-border hover:shadow-[0_2px_12px_rgba(45,32,24,0.05)] transition-all duration-200 anim-fade-up"
         >
           <div class="flex-1 min-w-0">
             <h3 class="font-medium text-text-primary text-[15px] mb-0.5 group-hover:text-primary transition-colors" style="font-family: var(--font-heading); font-size: 17px;">
@@ -137,6 +137,7 @@ onMounted(async () => {
   const slug = route.params.wsSlug as string
   await workspaceStore.setCurrentBySlug(slug)
   if (workspaceStore.currentWorkspace) {
+    // Note store handles decryption transparently in fetchNotes
     await noteStore.fetchNotes(workspaceStore.currentWorkspace.id)
   }
 })

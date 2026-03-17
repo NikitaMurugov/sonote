@@ -56,18 +56,23 @@ func (n *NullRawMessage) UnmarshalJSON(data []byte) error {
 }
 
 type Note struct {
-	ID          uint64          `json:"id" db:"id"`
-	WorkspaceID uint64          `json:"workspace_id" db:"workspace_id"`
-	FolderID    *uint64         `json:"folder_id" db:"folder_id"`
-	Title       string          `json:"title" db:"title"`
-	Slug        string          `json:"slug" db:"slug"`
-	ContentMD   string          `json:"content_md" db:"content_md"`
-	ContentHTML string          `json:"content_html" db:"content_html"`
-	ContentJSON NullRawMessage  `json:"content_json" db:"content_json"`
-	AuthorID    uint64          `json:"author_id" db:"author_id"`
-	IsPinned    bool            `json:"is_pinned" db:"is_pinned"`
-	IsArchived  bool            `json:"is_archived" db:"is_archived"`
-	WordCount   uint32          `json:"word_count" db:"word_count"`
-	CreatedAt   time.Time       `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time       `json:"updated_at" db:"updated_at"`
+	ID               uint64         `json:"id" db:"id"`
+	WorkspaceID      uint64         `json:"workspace_id" db:"workspace_id"`
+	FolderID         *uint64        `json:"folder_id" db:"folder_id"`
+	Title            string         `json:"title" db:"title"`
+	Slug             string         `json:"slug" db:"slug"`
+	ContentMD        string         `json:"content_md" db:"content_md"`
+	ContentHTML      string         `json:"content_html" db:"content_html"`
+	ContentJSON      NullRawMessage `json:"content_json" db:"content_json"`
+	AuthorID         uint64         `json:"author_id" db:"author_id"`
+	IsPinned         bool           `json:"is_pinned" db:"is_pinned"`
+	IsArchived       bool           `json:"is_archived" db:"is_archived"`
+	WordCount        uint32         `json:"word_count" db:"word_count"`
+	ContentEncrypted *string        `json:"content_encrypted,omitempty" db:"content_encrypted"`
+	ContentIV        *string        `json:"content_iv,omitempty" db:"content_iv"`
+	TitleEncrypted   *string        `json:"title_encrypted,omitempty" db:"title_encrypted"`
+	TitleIV          *string        `json:"title_iv,omitempty" db:"title_iv"`
+	IsEncrypted      bool           `json:"is_encrypted" db:"is_encrypted"`
+	CreatedAt        time.Time      `json:"created_at" db:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at" db:"updated_at"`
 }

@@ -82,7 +82,7 @@ async function handleLogin() {
   error.value = ''
   loading.value = true
   try {
-    await authStore.login(email.value, password.value)
+    await authStore.loginAndSetup(email.value, password.value)
     router.push('/')
   } catch (e: any) {
     error.value = e.response?.data?.error || 'Неверный email или пароль'

@@ -68,3 +68,15 @@ func (r *UserRepository) UpdatePassword(ctx context.Context, id uint64, hash str
 	_, err := r.db.ExecContext(ctx, "UPDATE users SET password_hash = ? WHERE id = ?", hash, id)
 	return err
 }
+
+func (r *UserRepository) UpdateEncryption(ctx context.Context, id uint64, userSalt, encryptedPrivateKey, publicKey, recoveryDEK string) error {
+	query := `UPDATE users SET user_salt = ?, encrypted_private_key = ?, public_key = ?, recovery_dek = ? WHERE id = ?`
+	_, err := r.db.ExecContext(ctx, query, userSalt, encryptedPrivateKey, publicKey, recoveryDEK, id)
+	return err
+}
+
+func (r *UserRepository) GetPublicKey(ctx context.Context, id uint64) (string, error) {
+	var key string
+	err := r.db.GetContext(ctx, &key, "SELECT COALESCE(public_key, '') FROM users WHERE id = ?", id)
+	return key, err
+}
