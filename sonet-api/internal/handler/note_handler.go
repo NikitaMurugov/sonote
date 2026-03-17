@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -84,6 +86,8 @@ func (h *NoteHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.syncLinks(r.Context(), note)
+
 	response.JSON(w, http.StatusCreated, note)
 }
 
@@ -151,6 +155,11 @@ func (h *NoteHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Sync wiki-links from content
+	if req.ContentJSON != nil || req.ContentHTML != nil {
+		h.syncLinks(r.Context(), note)
+	}
+
 	response.JSON(w, http.StatusOK, note)
 }
 
@@ -185,4 +194,82 @@ func (h *NoteHandler) GetBacklinks(w http.ResponseWriter, r *http.Request) {
 
 func countWords(s string) int {
 	return len(strings.Fields(s))
+}
+
+// syncLinks extracts wiki-link noteIds from TipTap JSON content and syncs note_links table.
+func (h *NoteHandler) syncLinks(ctx context.Context, note *model.Note) {
+	// Extract linked note IDs from TipTap JSON
+	linkedIDs := extractWikiLinkIDs(note.ContentJSON.RawMessage)
+
+	// Delete all existing outgoing links and re-create
+	if err := h.linkRepo.DeleteBySource(ctx, note.ID); err != nil {
+		slog.Error("failed to delete old links", "note_id", note.ID, "error", err)
+		return
+	}
+
+	for _, targetID := range linkedIDs {
+		if targetID == note.ID {
+			continue // skip self-links
+		}
+		link := &model.NoteLink{
+			SourceNoteID: note.ID,
+			TargetNoteID: targetID,
+		}
+		if err := h.linkRepo.Upsert(ctx, link); err != nil {
+			slog.Error("failed to upsert link", "source", note.ID, "target", targetID, "error", err)
+		}
+	}
+}
+
+// extractWikiLinkIDs walks TipTap JSON document tree and extracts noteId from wikiLink nodes.
+func extractWikiLinkIDs(data json.RawMessage) []uint64 {
+	if data == nil {
+		return nil
+	}
+
+	var doc struct {
+		Type    string            `json:"type"`
+		Content []json.RawMessage `json:"content"`
+		Attrs   struct {
+			NoteID interface{} `json:"noteId"`
+		} `json:"attrs"`
+	}
+
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return nil
+	}
+
+	var ids []uint64
+	seen := make(map[uint64]bool)
+
+	// If this node itself is a wikiLink
+	if doc.Type == "wikiLink" && doc.Attrs.NoteID != nil {
+		if id := parseNoteID(doc.Attrs.NoteID); id > 0 && !seen[id] {
+			ids = append(ids, id)
+			seen[id] = true
+		}
+	}
+
+	// Recurse into content
+	for _, child := range doc.Content {
+		for _, id := range extractWikiLinkIDs(child) {
+			if !seen[id] {
+				ids = append(ids, id)
+				seen[id] = true
+			}
+		}
+	}
+
+	return ids
+}
+
+func parseNoteID(v interface{}) uint64 {
+	switch val := v.(type) {
+	case float64:
+		return uint64(val)
+	case string:
+		n, _ := strconv.ParseUint(val, 10, 64)
+		return n
+	}
+	return 0
 }
