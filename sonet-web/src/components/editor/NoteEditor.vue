@@ -10,7 +10,10 @@ import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
+import { WikiLink, createWikiLinkSuggestion } from './WikiLinkExtension'
 import { useDebounce } from '@/composables/useDebounce'
+import api from '@/composables/useApi'
+import { useWorkspaceStore } from '@/stores/workspace'
 
 const props = defineProps<{
   content: any
@@ -19,6 +22,18 @@ const props = defineProps<{
 const emit = defineEmits<{
   update: [payload: { html: string; json: any; text: string }]
 }>()
+
+const workspaceStore = useWorkspaceStore()
+
+async function fetchNotes() {
+  if (!workspaceStore.currentWorkspace) return []
+  try {
+    const { data } = await api.get(`/workspaces/${workspaceStore.currentWorkspace.id}/notes`)
+    return (data.data || []).map((n: any) => ({ id: n.id, title: n.title }))
+  } catch {
+    return []
+  }
+}
 
 const debouncedEmit = useDebounce((editor: any) => {
   emit('update', {
@@ -35,7 +50,10 @@ const editor = useEditor({
       heading: { levels: [1, 2, 3] },
     }),
     Link.configure({ openOnClick: false }),
-    Placeholder.configure({ placeholder: 'Начните писать...' }),
+    Placeholder.configure({ placeholder: 'Начните писать... Введите [[ для ссылки на заметку' }),
+    WikiLink.configure({
+      suggestion: createWikiLinkSuggestion(fetchNotes),
+    }),
   ],
   editorProps: {
     attributes: {
@@ -76,7 +94,6 @@ onBeforeUnmount(() => {
   margin-top: 0.75em;
 }
 
-/* Placeholder */
 .sonote-prose p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
@@ -86,7 +103,6 @@ onBeforeUnmount(() => {
   font-style: italic;
 }
 
-/* Headings — use display font */
 .sonote-prose h1 {
   font-family: var(--font-heading);
   font-size: 2em;
@@ -113,7 +129,6 @@ onBeforeUnmount(() => {
   color: var(--color-text-primary);
 }
 
-/* Links */
 .sonote-prose a {
   color: var(--color-link);
   text-decoration: underline;
@@ -127,7 +142,22 @@ onBeforeUnmount(() => {
   text-decoration-color: var(--color-link-hover);
 }
 
-/* Inline code */
+/* Wiki link styling */
+.sonote-prose a.wiki-link {
+  color: var(--color-primary);
+  text-decoration: none;
+  background: var(--color-primary-light);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  font-size: 0.95em;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.sonote-prose a.wiki-link:hover {
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
 .sonote-prose code {
   font-family: var(--font-mono);
   font-size: 0.88em;
@@ -137,7 +167,6 @@ onBeforeUnmount(() => {
   color: var(--color-accent);
 }
 
-/* Code blocks */
 .sonote-prose pre {
   background: var(--color-bg-sidebar);
   border: 1px solid var(--color-border-light);
@@ -154,7 +183,6 @@ onBeforeUnmount(() => {
   font-size: 1em;
 }
 
-/* Blockquote */
 .sonote-prose blockquote {
   border-left: 3px solid var(--color-primary);
   padding-left: 1.2em;
@@ -163,7 +191,6 @@ onBeforeUnmount(() => {
   margin: 1.2em 0;
 }
 
-/* Lists */
 .sonote-prose ul, .sonote-prose ol {
   padding-left: 1.6em;
   margin: 0.6em 0;
@@ -171,7 +198,6 @@ onBeforeUnmount(() => {
 .sonote-prose li { margin: 0.25em 0; }
 .sonote-prose li::marker { color: var(--color-text-tertiary); }
 
-/* Horizontal rule */
 .sonote-prose hr {
   border: none;
   height: 1px;
@@ -179,7 +205,6 @@ onBeforeUnmount(() => {
   margin: 2em 0;
 }
 
-/* Strong / em */
 .sonote-prose strong { font-weight: 600; }
 .sonote-prose em { font-style: italic; }
 </style>
