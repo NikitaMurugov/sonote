@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import api from '@/composables/useApi'
 import { useCrypto } from '@/composables/useCrypto'
 
-const SESSION_KEY = 'sonote-enc-pwd'
+const STORAGE_KEY = 'sonote-enc-pwd'
 
 export const useEncryptionStore = defineStore('encryption', () => {
   const crypto = useCrypto()
@@ -11,10 +11,14 @@ export const useEncryptionStore = defineStore('encryption', () => {
   const isSetup = ref(false)
   const isUnlocked = ref(false)
   const loading = ref(false)
+  const showUnlockModal = ref(false)
 
-  // In-memory only — never persisted to disk
+  // In-memory only
   let privateKey: CryptoKey | null = null
   const workspaceDEKs = new Map<number, CryptoKey>()
+
+  // Promise-based unlock request
+  let unlockResolve: ((result: boolean) => void) | null = null
 
   const hasEncryption = computed(() => isSetup.value)
 
@@ -37,7 +41,6 @@ export const useEncryptionStore = defineStore('encryption', () => {
       const { wrapped, iv } = await crypto.wrapPrivateKey(keyPair.privateKey, masterKey)
       const encryptedPrivateKey = `${iv}:${wrapped}`
 
-      // Generate recovery key
       const recoveryBytes = globalThis.crypto.getRandomValues(new Uint8Array(32))
       const recoveryKeyDisplay = crypto.bufToBase64(recoveryBytes.buffer)
       const recoveryMK = await crypto.deriveMasterKey(recoveryKeyDisplay, salt)
@@ -54,7 +57,7 @@ export const useEncryptionStore = defineStore('encryption', () => {
       privateKey = keyPair.privateKey
       isSetup.value = true
       isUnlocked.value = true
-      sessionStorage.setItem(SESSION_KEY, password)
+      localStorage.setItem(STORAGE_KEY, password)
 
       // Create workspace DEK for all user's workspaces
       try {
@@ -89,40 +92,82 @@ export const useEncryptionStore = defineStore('encryption', () => {
       const [iv, wrapped] = (keys.encrypted_private_key as string).split(':')
       privateKey = await crypto.unwrapPrivateKey(wrapped, masterKey, iv)
       isUnlocked.value = true
-      sessionStorage.setItem(SESSION_KEY, password)
+      localStorage.setItem(STORAGE_KEY, password)
     } finally {
       loading.value = false
     }
   }
 
-  /** Auto-restore from sessionStorage if private key is lost (e.g. page refresh) */
+  /**
+   * Show global modal asking user for encryption password.
+   * Returns a Promise that resolves when user submits or cancels.
+   */
+  function requestUnlock(): Promise<boolean> {
+    if (showUnlockModal.value) {
+      // Already showing modal — return existing promise
+      return new Promise((resolve) => {
+        const prev = unlockResolve
+        unlockResolve = (result) => {
+          prev?.(result)
+          resolve(result)
+        }
+      })
+    }
+
+    return new Promise((resolve) => {
+      unlockResolve = resolve
+      showUnlockModal.value = true
+    })
+  }
+
+  /** Called by EncryptionUnlockModal on submit */
+  async function resolveUnlock(password: string): Promise<void> {
+    await unlock(password)
+    showUnlockModal.value = false
+    unlockResolve?.(true)
+    unlockResolve = null
+  }
+
+  /** Called by EncryptionUnlockModal on cancel */
+  function cancelUnlock() {
+    showUnlockModal.value = false
+    unlockResolve?.(false)
+    unlockResolve = null
+  }
+
+  /**
+   * Auto-restore from localStorage, or show modal if needed.
+   * Returns true if encryption is unlocked.
+   */
   async function ensureUnlocked(): Promise<boolean> {
     if (isUnlocked.value && privateKey) return true
 
-    const savedPwd = sessionStorage.getItem(SESSION_KEY)
-    if (!savedPwd) return false
-
-    try {
-      await unlock(savedPwd)
-      return true
-    } catch {
-      sessionStorage.removeItem(SESSION_KEY)
-      return false
+    // Try auto-restore from localStorage
+    const savedPwd = localStorage.getItem(STORAGE_KEY)
+    if (savedPwd) {
+      try {
+        await unlock(savedPwd)
+        return true
+      } catch {
+        localStorage.removeItem(STORAGE_KEY)
+      }
     }
+
+    // Show modal and wait for user input
+    return requestUnlock()
   }
 
   function lock() {
     privateKey = null
     workspaceDEKs.clear()
     isUnlocked.value = false
-    sessionStorage.removeItem(SESSION_KEY)
+    localStorage.removeItem(STORAGE_KEY)
   }
 
   async function getWorkspaceDEK(workspaceId: number, encryptedDEK?: string): Promise<CryptoKey> {
     const cached = workspaceDEKs.get(workspaceId)
     if (cached) return cached
 
-    // Auto-restore if needed
     if (!privateKey) {
       const restored = await ensureUnlocked()
       if (!restored) throw new Error('Encryption locked')
@@ -216,11 +261,15 @@ export const useEncryptionStore = defineStore('encryption', () => {
     isSetup,
     isUnlocked,
     loading,
+    showUnlockModal,
     hasEncryption,
     checkSetup,
     setup,
     unlock,
     ensureUnlocked,
+    requestUnlock,
+    resolveUnlock,
+    cancelUnlock,
     lock,
     getWorkspaceDEK,
     createWorkspaceDEK,

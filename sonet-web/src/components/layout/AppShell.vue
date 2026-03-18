@@ -13,6 +13,7 @@
         </router-view>
       </div>
     </main>
+    <EncryptionUnlockModal />
   </div>
 </template>
 
@@ -20,11 +21,14 @@
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
+import { useEncryptionStore } from '@/stores/encryption'
 import Sidebar from './Sidebar.vue'
 import TopBar from './TopBar.vue'
+import EncryptionUnlockModal from '@/components/encryption/EncryptionUnlockModal.vue'
 
 const authStore = useAuthStore()
 const uiStore = useUiStore()
+const encryptionStore = useEncryptionStore()
 const isMobile = ref(false)
 
 onMounted(async () => {
@@ -32,6 +36,14 @@ onMounted(async () => {
     await authStore.fetchUser()
   }
   isMobile.value = window.innerWidth < 768
+
+  // Auto-unlock encryption from localStorage on app load
+  if (authStore.isAuthenticated) {
+    await encryptionStore.checkSetup()
+    if (encryptionStore.isSetup) {
+      await encryptionStore.ensureUnlocked()
+    }
+  }
 })
 </script>
 

@@ -34,28 +34,15 @@
           ></span>
         </div>
 
-        <!-- Unlock -->
         <div v-if="!encryptionStore.isUnlocked">
-          <div class="flex gap-2">
-            <input
-              v-model="unlockPassword"
-              type="password"
-              placeholder="Пароль аккаунта"
-              class="flex-1 px-3 py-2 rounded-lg border border-border bg-bg-base text-text-primary text-sm focus:outline-none focus:border-primary transition"
-              @keydown.enter="handleUnlock"
-            />
-            <button
-              @click="handleUnlock"
-              :disabled="encryptionStore.loading"
-              class="px-4 py-2 rounded-lg bg-primary text-text-inverse text-sm font-medium hover:bg-primary-hover transition disabled:opacity-50"
-            >
-              Разблокировать
-            </button>
-          </div>
-          <p v-if="unlockError" class="text-error text-xs mt-1">{{ unlockError }}</p>
+          <button
+            @click="encryptionStore.ensureUnlocked()"
+            :disabled="encryptionStore.loading"
+            class="w-full py-2 rounded-lg bg-primary text-text-inverse text-sm font-medium hover:bg-primary-hover transition disabled:opacity-50"
+          >
+            Разблокировать
+          </button>
         </div>
-
-        <!-- Unlocked -->
         <div v-else>
           <button
             @click="encryptionStore.lock()"
@@ -154,9 +141,6 @@ const encryptionStore = useEncryptionStore()
 const sessionStore = useSessionStore()
 const { theme, toggleTheme } = useTheme()
 
-const unlockPassword = ref('')
-const unlockError = ref('')
-
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('ru-RU', {
     day: 'numeric',
@@ -164,16 +148,6 @@ function formatDate(dateStr: string) {
     hour: '2-digit',
     minute: '2-digit',
   })
-}
-
-async function handleUnlock() {
-  unlockError.value = ''
-  try {
-    await encryptionStore.unlock(unlockPassword.value)
-    unlockPassword.value = ''
-  } catch {
-    unlockError.value = 'Неверный пароль'
-  }
 }
 
 async function handleRevokeAll() {
